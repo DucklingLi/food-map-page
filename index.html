@@ -27,7 +27,7 @@
         .sidebar-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
         .logo { font-size: 1.6em; font-weight: 700; }
         .subtitle { font-size: 0.85em; color: #6b5e4a; margin-top: 4px; }
-        .stats-row { display: flex; gap: 12px; margin-top: 8px; }
+        .stats-row { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
         .stat-badge { font-size: 0.75em; background: #f5f0ea; padding: 4px 10px; border-radius: 20px; }
         .stat-badge strong { color: var(--accent); }
         .sidebar-filters { padding: 12px 24px; border-bottom: 1px solid var(--border); }
@@ -58,6 +58,7 @@
             white-space: nowrap; padding: 0 !important; margin: 0 !important;
         }
         .leaflet-tooltip.restaurant-label { background: transparent; border: none; box-shadow: none; }
+        /* ===== Citywalk 2.0 新增 ===== */
         .layer-switch { display:flex; gap:6px; margin-bottom:8px; }
         .layer-chip { flex:1; text-align:center; font-size:0.75em; padding:6px 4px; border-radius:10px; border:1.5px solid var(--border); cursor:pointer; background:#fff; }
         .layer-chip.active { background: var(--accent); color:#fff; border-color:var(--accent); }
@@ -130,6 +131,7 @@
         let routes = [];             // Citywalk 路线
         let layerMode = 'both';      // 'both' | 'food' | 'citywalk'
         let highlightedSpotId = null;
+        let foodLoadError = null;    // 美食数据加载失败原因（null = 成功）
 
         const cuisineColors = {
             '粤菜':'#e67e22','川菜':'#e74c3c','中餐':'#d35400','日料':'#e91e63',
@@ -143,6 +145,7 @@
             if (rating >= 3.0) return '#f1c40f';
             return '#2ecc71';
         }
+
         // ===== Citywalk：图标与颜色 =====
         function foodIcon(color) {
             return L.divIcon({
@@ -243,7 +246,6 @@
             const imgs = r.images?.length ? r.images.map(u => `<img src="${u}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;margin:2px;" onclick="event.stopPropagation();window.openLightbox('${u}')">`).join('') : '';
             return `<div><div>${imgs}</div><b>${r.name}</b> <span style="background:${getCuisineColor(r.cuisine)};color:#fff;padding:2px 6px;border-radius:8px;">${r.cuisine}</span><br>⭐ ${stars} ${r.rating} · ${r.date||''}<br>${r.price||''}<br>${r.review||''}</div>`;
         }
-
         function spotPopupContent(s) {
             const stars = '★'.repeat(Math.floor(s.rating)) + (s.rating%1>=0.5?'⯪':'') + '☆'.repeat(5-Math.ceil(s.rating));
             const imgs = s.images?.length ? s.images.map(u => `<img src="${u}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;margin:2px;" onclick="event.stopPropagation();window.openLightbox('${u}')">`).join('') : '';
@@ -259,7 +261,6 @@
             }).join(' → ');
             return `<div><b>${rt.name}</b> <span style="background:${rt.color};color:#fff;padding:2px 6px;border-radius:8px;">路线</span><br>🚶 ${names}<br>⭐ ${stars} ${rt.rating||'-'} · ${rt.date||''}<br>${rt.review||''}</div>`;
         }
-        
         window.openLightbox = function(url) {
             const ov = document.createElement('div');
             ov.style = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center;';
@@ -275,7 +276,6 @@
             if(searchQ.trim()){ const q = searchQ.trim().toLowerCase(); data = data.filter(r=> `${r.name} ${r.cuisine} ${(r.tags||[]).join(' ')} ${r.review}`.toLowerCase().includes(q)); }
             return data.sort((a,b)=> (b.date||'').localeCompare(a.date||''));
         }
-
         function getFilteredSpots() {
             let data = [...spots];
             if(searchQ.trim()){
@@ -292,7 +292,10 @@
             let html = '';
 
             if (layerMode !== 'citywalk') {
-                if(!filtered.length){ html += '<div style="text-align:center;padding:40px;color:#999;">🍽️ 暂无餐厅</div>'; }
+                if (foodLoadError) {
+                    html += `<div style="text-align:center;padding:40px;color:#c0392b;">⚠️ 美食数据加载失败<br><span style="font-size:0.85em;color:#999;">${foodLoadError}</span><br><span style="font-size:0.85em;color:#999;">请刷新重试，或按 F12 查看控制台</span></div>`;
+                }
+                else if(!filtered.length){ html += '<div style="text-align:center;padding:40px;color:#999;">🍽️ 暂无餐厅</div>'; }
                 else {
                     html += filtered.map(r=>{
                         const thumb = r.images?.length ? `<img src="${r.images[0]}" onerror="this.style.display='none';this.parentElement.textContent='🍽️';">` : '🍽️';
@@ -317,8 +320,8 @@
             document.getElementById('totalCount').textContent = filtered.length;
             if(filtered.length){ document.getElementById('avgRating').textContent = (filtered.reduce((s,r)=>s+(r.rating||0),0)/filtered.length).toFixed(1); }
             else document.getElementById('avgRating').textContent = '-';
-            document.getElementById('spotCount').textContent = spots.length;
-            document.getElementById('routeCount').textContent = routes.length;
+            const spotCountEl = document.getElementById('spotCount'); if (spotCountEl) spotCountEl.textContent = spots.length;
+            const routeCountEl = document.getElementById('routeCount'); if (routeCountEl) routeCountEl.textContent = routes.length;
 
             const counts = {};
             restaurants.forEach(r=> counts[r.cuisine] = (counts[r.cuisine]||0)+1);
@@ -336,6 +339,7 @@
             }
             document.getElementById('mapLegend').innerHTML = legend;
         }
+
         window.filterCuisine = function(c) { activeCuisine = c; highlightedId = null; updateList(); renderMarkers(); };
         window.flyTo = function(id) {
             const r = restaurants.find(r=>String(r.id)===String(id)); if(!r) return;
@@ -345,7 +349,6 @@
             if(marker) setTimeout(()=>marker.openPopup(), 800);
             if(window.innerWidth<=768) closeSidebar();
         };
-
         window.flyToSpot = function(id) {
             const s = spots.find(x => String(x.id) === String(id)); if(!s) return;
             highlightedSpotId = s.id; updateList();
@@ -368,19 +371,32 @@
             try {
                 const [foodRes, cwRes] = await Promise.allSettled([ fetch(DATA_URL), fetch(CITYWALK_URL) ]);
 
-                let foodOk = false;
                 if (foodRes.status === 'fulfilled' && foodRes.value.ok) {
                     const data = await foodRes.value.json();
-                    if (Array.isArray(data)) { restaurants = data; foodOk = true; }
-                }
-                if (!foodOk) {
-                    document.getElementById('restaurantList').innerHTML = '<div style="text-align:center;padding:40px;color:#999;">⚠️ 美食数据加载失败<br>请检查网络或数据源</div>';
+                    if (Array.isArray(data)) {
+                        restaurants = data;
+                        foodLoadError = null;
+                        console.log('✅ 美食数据加载成功：' + restaurants.length + ' 家餐厅');
+                    } else {
+                        foodLoadError = 'data.json 内容不是数组（格式被改动过？）';
+                        console.error(foodLoadError, data);
+                    }
+                } else if (foodRes.status === 'rejected') {
+                    foodLoadError = '网络请求失败：' + (foodRes.reason && foodRes.reason.message ? foodRes.reason.message : foodRes.reason);
+                    console.error('data.json 请求失败：', foodRes.reason);
+                } else {
+                    foodLoadError = 'data.json 请求返回 HTTP ' + foodRes.value.status;
+                    console.error(foodLoadError);
                 }
 
                 if (cwRes.status === 'fulfilled' && cwRes.value.ok) {
                     const cw = await cwRes.value.json();
                     spots = Array.isArray(cw.spots) ? cw.spots : [];
                     routes = Array.isArray(cw.routes) ? cw.routes : [];
+                    console.log('✅ Citywalk 数据加载成功：' + spots.length + ' 个景点，' + routes.length + ' 条路线');
+                } else {
+                    // citywalk.json 不存在或加载失败：自动降级为纯美食模式，不算错误
+                    console.log('ℹ️ citywalk.json 未加载（可能不存在），保持纯美食模式');
                 }
 
                 updateList();
@@ -392,9 +408,21 @@
                 if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [30,30], maxZoom: 15 });
             } catch (e) {
                 console.error('加载数据失败', e);
-                document.getElementById('restaurantList').innerHTML = '<div style="text-align:center;padding:40px;color:#999;">⚠️ 数据加载失败<br>请检查网络或数据源</div>';
+                foodLoadError = '解析失败：' + e.message;
+                updateList();
             }
         }
+
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = document.getElementById('sidebarBackdrop');
+        function openSidebar(){ sidebar.classList.add('open'); backdrop.classList.add('show'); }
+        function closeSidebar(){ sidebar.classList.remove('open'); backdrop.classList.remove('show'); }
+        document.getElementById('mobileToggle').addEventListener('click', ()=> sidebar.classList.contains('open')? closeSidebar() : openSidebar());
+        backdrop.addEventListener('click', closeSidebar);
+        window.addEventListener('resize', ()=>{ map.invalidateSize(); if(window.innerWidth>768) closeSidebar(); });
+
+        // 启动
+        loadFromGitHub();
     });
     </script>
 </body>
