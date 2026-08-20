@@ -159,9 +159,12 @@
                 iconSize: [26,26], iconAnchor: [13,13], popupAnchor: [0,-18]
             });
         }
+        function routeHasSpot(rt, spotId) {
+            return (rt.spotIds || []).includes(spotId) || (rt.points || []).some(p => String(p.spotId) === String(spotId));
+        }
         function getSpotColor(spot) {
             for (const rt of routes) {
-                if ((rt.spotIds || []).includes(spot.id)) return rt.color;
+                if (routeHasSpot(rt, spot.id)) return rt.color;
             }
             return '#7f8c8d'; // 不属于任何路线的景点用灰色
         }
@@ -215,19 +218,27 @@
             }
         }
 
-        // 画一条路线：相邻景点之间的单向线段 + 中点方向箭头
-        function drawRoute(rt) {
-            const pts = (rt.spotIds || [])
+        // 画一条路线：按 points 依次连成自由路径（v1 旧数据用 spotIds 兜底），较长线段加方向箭头
+        function routePointList(rt) {
+            if (Array.isArray(rt.points) && rt.points.length) return rt.points.filter(p => typeof p.lat === 'number' && typeof p.lng === 'number');
+            return (rt.spotIds || [])
                 .map(id => spots.find(s => String(s.id) === String(id)))
                 .filter(Boolean)
-                .map(s => [s.lat, s.lng]);
-            for (let i = 0; i < pts.length - 1; i++) {
-                const a = pts[i], b = pts[i+1];
-                const line = L.polyline([a, b], { color: rt.color, weight: 4, opacity: 0.85 }).addTo(map);
-                line.bindPopup(routePopupContent(rt), { maxWidth:280, closeButton:true });
-                line.bindTooltip(rt.name, { sticky: true, className: 'restaurant-label' });
-                routeLayers.push(line);
-                // 单向箭头：位于线段中点，指向行进方向
+                .map(s => ({ lat: s.lat, lng: s.lng, spotId: s.id }));
+        }
+        function drawRoute(rt) {
+            const pts = routePointList(rt);
+            const latlngs = pts.map(p => [p.lat, p.lng]);
+            if (latlngs.length < 2) return;
+            const line = L.polyline(latlngs, { color: rt.color, weight: 4, opacity: 0.85 }).addTo(map);
+            line.bindPopup(routePopupContent(rt), { maxWidth:280, closeButton:true });
+            line.bindTooltip(rt.name, { sticky: true, className: 'restaurant-label' });
+            routeLayers.push(line);
+            // 方向箭头：只在较长的线段上标注，密集路径点不会太杂乱
+            for (let i = 0; i < latlngs.length - 1; i++) {
+                const a = latlngs[i], b = latlngs[i+1];
+                const px = map.latLngToContainerPoint(a).distanceTo(map.latLngToContainerPoint(b));
+                if (px < 60) continue;
                 const mid = [ (a[0]+b[0])/2, (a[1]+b[1])/2 ];
                 const angle = Math.atan2(-(b[0]-a[0]), b[1]-a[1]) * 180 / Math.PI;
                 const arrow = L.marker(mid, {
@@ -249,17 +260,19 @@
         function spotPopupContent(s) {
             const stars = '★'.repeat(Math.floor(s.rating)) + (s.rating%1>=0.5?'⯪':'') + '☆'.repeat(5-Math.ceil(s.rating));
             const imgs = s.images?.length ? s.images.map(u => `<img src="${u}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;margin:2px;" onclick="event.stopPropagation();window.openLightbox('${u}')">`).join('') : '';
-            const routeTags = routes.filter(rt => (rt.spotIds||[]).includes(s.id))
+            const routeTags = routes.filter(rt => routeHasSpot(rt, s.id))
                 .map(rt => `<span style="background:${rt.color};color:#fff;padding:2px 6px;border-radius:8px;margin-right:4px;">🚶 ${rt.name}</span>`).join('');
             return `<div><div>${imgs}</div><b>${s.name}</b> 📷<br>${routeTags}<br>⭐ ${stars} ${s.rating} · ${s.date||''}<br>${s.review||''}</div>`;
         }
         function routePopupContent(rt) {
             const stars = '★'.repeat(Math.floor(rt.rating||0)) + ((rt.rating||0)%1>=0.5?'⯪':'') + '☆'.repeat(5-Math.ceil(rt.rating||0));
-            const names = (rt.spotIds||[]).map(id => {
-                const s = spots.find(x => String(x.id) === String(id));
-                return s ? s.name : '（已删除的景点）';
-            }).join(' → ');
-            return `<div><b>${rt.name}</b> <span style="background:${rt.color};color:#fff;padding:2px 6px;border-radius:8px;">路线</span><br>🚶 ${names}<br>⭐ ${stars} ${rt.rating||'-'} · ${rt.date||''}<br>${rt.review||''}</div>`;
+            const pts = routePointList(rt);
+            const names = pts.map(p => {
+                if (p.spotId) { const s = spots.find(x => String(x.id) === String(p.spotId)); return s ? '📷 ' + s.name : null; }
+                if (p.restaurantId) { const r = restaurants.find(x => String(x.id) === String(p.restaurantId)); return r ? '🍜 ' + r.name : null; }
+                return null;
+            }).filter(Boolean).join(' → ');
+            return `<div><b>${rt.name}</b> <span style="background:${rt.color};color:#fff;padding:2px 6px;border-radius:8px;">路线</span><br>🚶 ${names || '（自由路线）'}（${pts.length} 个路径点）<br>⭐ ${stars} ${rt.rating||'-'} · ${rt.date||''}<br>${rt.review||''}</div>`;
         }
         window.openLightbox = function(url) {
             const ov = document.createElement('div');
