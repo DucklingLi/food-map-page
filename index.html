@@ -257,7 +257,7 @@
         function popupContent(r) {
             const stars = '★'.repeat(Math.floor(r.rating)) + (r.rating%1>=0.5?'⯪':'') + '☆'.repeat(5-Math.ceil(r.rating));
             const imgs = r.images?.length ? r.images.map(u => `<img src="${u}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;margin:2px;" onclick="event.stopPropagation();window.openLightbox('${u}')">`).join('') : '';
-            return `<div><div>${imgs}</div><b>${r.name}</b> <span style="background:${getCuisineColor(r.cuisine)};color:#fff;padding:2px 6px;border-radius:8px;">${r.cuisine}</span><br>⭐ ${stars} ${r.rating} · ${r.date||''}<br>${r.price||''}<br>${r.review||''}</div>`;
+            return `<div><div>${imgs}</div><b>${r.name}</b> <span style="background:${getCuisineColor(r.cuisine)};color:#fff;padding:2px 6px;border-radius:8px;">${r.cuisine}</span><br>⭐ ${stars} ${r.rating} · ${r.date||''}<br>${r.price ? '人均价格（元）：' + r.price : ''}<br>${r.review||''}</div>`;
         }
         function spotPopupContent(s) {
             const stars = '★'.repeat(Math.floor(s.rating)) + (s.rating%1>=0.5?'⯪':'') + '☆'.repeat(5-Math.ceil(s.rating));
