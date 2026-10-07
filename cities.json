@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "siteTitle": "小喇叭的觅食地图",
+  "siteSubtitle": "美食探店 · Citywalk 漫步，一城一图",
+  "author": {
+    "name": "小喇叭",
+    "url": "https://ducklingli.github.io/"
+  },
+  "dataRepo": "https://raw.githubusercontent.com/DucklingLi/food-map-data/main",
+  "cities": [
+    {
+      "id": "guangzhou",
+      "name": "广州",
+      "emoji": "🍜",
+      "tagline": "从早茶到宵夜，一路吃到珠江边",
+      "regions": "荔湾 · 越秀 · 海珠 · 天河",
+      "accent": "#e8673a",
+      "center": [23.12, 113.28],
+      "zoom": 13,
+      "food": "data.json",
+      "citywalk": "citywalk.json",
+      "enabled": true
+    },
+    {
+      "id": "nanjing",
+      "name": "南京",
+      "emoji": "🦆",
+      "tagline": "盐水鸭、鸭血粉丝与满城梧桐",
+      "regions": "玄武 · 秦淮 · 鼓楼 · 建邺",
+      "accent": "#2f6fb0",
+      "center": [32.045, 118.79],
+      "zoom": 13,
+      "food": "nanjing.json",
+      "citywalk": "nanjing_citywalk.json",
+      "enabled": true
+    }
+  ]
+}

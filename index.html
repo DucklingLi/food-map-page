@@ -2,442 +2,288 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>🍜 小喇叭的广州美食地图</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>🍽️ 小喇叭的觅食地图</title>
+    <meta name="description" content="美食探店与 Citywalk 漫步地图，一城一图。">
     <style>
         :root {
-            --bg: #faf8f5; --sidebar-bg: #fff; --text: #2c2416;
-            --accent: #e8673a; --border: #e8e0d5; --shadow: 0 2px 16px rgba(0,0,0,0.07);
-            --radius: 14px; --star: #f5a623;
+            --bg: #faf8f5; --card: #fff; --text: #2c2416; --muted: #6b5e4a;
+            --accent: #e8673a; --border: #e8e0d5;
+            --shadow-sm: 0 2px 10px rgba(0,0,0,0.06);
+            --shadow-md: 0 10px 30px rgba(0,0,0,0.10);
+            --radius: 16px;
             --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
         * { margin:0; padding:0; box-sizing:border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
             background: var(--bg); color: var(--text);
-            height: 100vh; height: 100dvh; width: 100vw; overflow: hidden; display: flex;
-            position: relative;
+            min-height: 100vh; min-height: 100dvh;
+            padding-bottom: var(--safe-bottom);
+            -webkit-font-smoothing: antialiased;
         }
-        .sidebar {
-            width: 400px; min-width: 400px; height: 100%; background: var(--sidebar-bg);
-            box-shadow: var(--shadow); z-index: 1000; display: flex; flex-direction: column;
-            transition: transform 0.25s; padding-bottom: var(--safe-bottom);
+        .wrap { max-width: 1040px; margin: 0 auto; padding: 48px 24px 64px; }
+
+        /* ===== 页头 ===== */
+        .hero { margin-bottom: 36px; }
+        .hero h1 { font-size: clamp(1.7em, 4.5vw, 2.4em); font-weight: 800; letter-spacing:-0.5px; }
+        .hero h1 span { color: var(--accent); }
+        .hero .sub { color: var(--muted); margin-top: 10px; font-size: 1.02em; }
+        .hero .by { color: #b8a99a; margin-top: 6px; font-size: 0.85em; }
+        .hero .by a { color: var(--muted); text-decoration:none; border-bottom:1px dashed var(--border); }
+
+        /* ===== 工具行 ===== */
+        .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom: 22px; }
+        .search-box {
+            display:flex; align-items:center; gap:8px; background:#fff; border:1.5px solid var(--border);
+            border-radius: 26px; padding: 10px 18px; flex:1; min-width: 220px; box-shadow: var(--shadow-sm);
         }
-        .sidebar-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
-        .logo { font-size: 1.6em; font-weight: 700; }
-        .subtitle { font-size: 0.85em; color: #6b5e4a; margin-top: 4px; }
-        .stats-row { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
-        .stat-badge { font-size: 0.75em; background: #f5f0ea; padding: 4px 10px; border-radius: 20px; }
-        .stat-badge strong { color: var(--accent); }
-        .sidebar-filters { padding: 12px 24px; border-bottom: 1px solid var(--border); }
-        .search-box { display: flex; align-items: center; background: #f5f0ea; border-radius: 25px; padding: 8px 16px; gap: 8px; }
-        .search-box input { border: none; background: transparent; outline: none; font-size: 0.95em; flex:1; }
-        .cuisine-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-        .chip { font-size: 0.7em; padding: 4px 12px; border-radius: 16px; border: 1.5px solid var(--border); cursor: pointer; background: #fff; }
-        .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-        .sidebar-list { flex:1; overflow-y:auto; padding:8px 16px; -webkit-overflow-scrolling: touch; }
-        .restaurant-card { display: flex; gap:12px; padding:14px; margin:4px 0; border-radius:8px; cursor:pointer; border:2px solid transparent; background:#fff; position: relative; align-items: center; }
-        .restaurant-card:hover { background:#fdf9f5; border-color:#f0e6d8; }
-        .restaurant-card.highlighted { border-color: var(--accent); background:#fff8f4; }
-        .card-thumb { width:48px; height:48px; border-radius:8px; background:#f0e6d8; display:flex; align-items:center; justify-content:center; font-size:1.4em; overflow:hidden; flex-shrink:0; }
-        .card-thumb img { width:100%; height:100%; object-fit:cover; }
-        .card-info { flex:1; min-width:0; }
-        .card-info .name { font-weight:650; }
-        .card-info .meta { font-size:0.75em; color:#6b5e4a; margin-top:2px; }
-        .stars { color: var(--star); }
-        .sidebar-footer { padding:12px 24px; border-top:1px solid var(--border); display:flex; gap:8px; flex-wrap:wrap; padding-bottom: calc(12px + var(--safe-bottom)); }
-        .map-container { flex:1; position:relative; min-width: 0; }
-        #map { width:100%; height:100%; background:#f8f4ee; }
-        .map-legend { position:absolute; bottom:20px; right:20px; background:#fff; padding:8px 14px; border-radius:8px; font-size:0.7em; display:flex; flex-wrap:wrap; gap:10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .legend-dot { width:12px; height:12px; border-radius:50%; display:inline-block; }
-        .restaurant-label {
-            background: none !important; border: none !important; box-shadow: none !important;
-            font-size: 11px; font-weight: bold; color: #1a1a1a;
-            text-shadow: 0 0 5px rgba(255,255,255,0.9);
-            white-space: nowrap; padding: 0 !important; margin: 0 !important;
+        .search-box input { border:none; outline:none; background:transparent; font-size:0.95em; flex:1; color:var(--text); }
+        .count-hint { font-size:0.8em; color:#b8a99a; }
+
+        /* ===== 城市卡片 ===== */
+        .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .city-card {
+            position:relative; display:flex; flex-direction:column; gap:14px;
+            background: var(--card); border-radius: var(--radius); padding: 22px 22px 18px;
+            box-shadow: var(--shadow-sm); border:1.5px solid var(--border);
+            text-decoration:none; color:inherit; overflow:hidden;
+            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
         }
-        .leaflet-tooltip.restaurant-label { background: transparent; border: none; box-shadow: none; }
-        /* ===== Citywalk 2.0 新增 ===== */
-        .layer-switch { display:flex; gap:6px; margin-bottom:8px; }
-        .layer-chip { flex:1; text-align:center; font-size:0.75em; padding:6px 4px; border-radius:10px; border:1.5px solid var(--border); cursor:pointer; background:#fff; }
-        .layer-chip.active { background: var(--accent); color:#fff; border-color:var(--accent); }
-        .list-section-title { font-size:0.8em; font-weight:700; color:#6b5e4a; margin:14px 4px 6px; padding-bottom:4px; border-bottom:1px dashed var(--border); }
-        .mobile-toggle { display:none; position:absolute; top:16px; left:16px; z-index:1100; background:#fff; width:44px; height:44px; border-radius:50%; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.2); font-size:1.3em; cursor:pointer; align-items: center; justify-content: center; }
-        .mobile-toggle:active { transform: scale(0.95); }
-        .sidebar-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:1040; }
-        @media(max-width:768px){
-            .sidebar { position: fixed; left:0; top:0; width: 85vw; max-width: 360px; min-width: auto; transform: translateX(-105%); z-index:1050; border-radius: 0 var(--radius) var(--radius) 0; height: 100%; height: 100dvh; }
-            .sidebar.open { transform: translateX(0); }
-            .mobile-toggle { display: flex; }
-            .sidebar-backdrop.show { display: block; }
-            .map-legend { bottom: 70px; right: 10px; }
+        .city-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: #e0d2c0; }
+        .city-card .bar { position:absolute; inset:0 0 auto 0; height:5px; background: var(--c-accent, var(--accent)); }
+        .city-card .top { display:flex; align-items:center; gap:12px; margin-top:6px; }
+        .city-card .em { font-size:2.2em; line-height:1; }
+        .city-card .nm { font-size:1.25em; font-weight:750; }
+        .city-card .rg { font-size:0.72em; color:#b8a99a; margin-top:3px; }
+        .city-card .tagline { font-size:0.9em; color:var(--muted); line-height:1.55; min-height:2.6em; }
+        .city-card .stats { display:flex; gap:8px; flex-wrap:wrap; padding-top:12px; border-top:1px dashed var(--border); }
+        .pill { font-size:0.72em; background:#f5f0ea; border-radius:20px; padding:4px 10px; color:#6b5e4a; }
+        .pill strong { color: var(--c-accent, var(--accent)); }
+        .city-card .go { display:flex; align-items:center; justify-content:space-between; margin-top:2px; }
+        .city-card .go .txt { font-size:0.85em; font-weight:650; color: var(--c-accent, var(--accent)); }
+        .badge-last { position:absolute; top:14px; right:14px; font-size:0.68em; background:#fff3ec; color:var(--accent); border:1px solid #f5d8c9; border-radius:20px; padding:3px 9px; }
+
+        /* 添加城市卡片 */
+        .add-card {
+            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+            border: 2px dashed #ded2c0; border-radius: var(--radius); background: transparent;
+            color:#a99a88; cursor:pointer; min-height: 180px; padding: 22px; text-align:center;
+            transition: background .18s, color .18s, border-color .18s;
         }
+        .add-card:hover { background:#fff; color:#6b5e4a; border-color:#e0d2c0; }
+        .add-card .plus { font-size:1.8em; }
+        .add-card .t { font-size:0.9em; font-weight:650; }
+        .add-card .d { font-size:0.75em; line-height:1.5; }
+
+        /* 说明面板 */
+        .howto { display:none; margin-top: 24px; background:#fff; border:1.5px solid var(--border); border-radius: var(--radius); padding: 22px 24px; box-shadow: var(--shadow-sm); }
+        .howto.show { display:block; animation: fade .2s ease; }
+        @keyframes fade { from{opacity:0; transform:translateY(-4px);} to{opacity:1; transform:none;} }
+        .howto h3 { font-size:1.02em; margin-bottom:10px; }
+        .howto ol { margin-left: 20px; color:var(--muted); font-size:0.88em; line-height:1.8; }
+        .howto code { background:#f5f0ea; padding:1px 6px; border-radius:5px; font-size:0.9em; font-family: ui-monospace, Menlo, Consolas, monospace; }
+        .howto pre { background:#faf8f5; border:1px solid var(--border); border-radius:10px; padding:12px 14px; overflow:auto; margin-top:10px; font-size:0.78em; line-height:1.6; }
+        .howto .close { margin-top:14px; }
+
+        .footer { margin-top: 46px; text-align:center; color:#b8a99a; font-size:0.78em; line-height:2; }
+        .footer a { color:#a99a88; text-decoration:none; }
+
+        .loading { text-align:center; color:#b8a99a; padding: 40px 0; font-size:0.9em; }
+        .empty { text-align:center; color:#b8a99a; padding: 40px 0; font-size:0.9em; }
     </style>
-    <!-- 不蒜子统计脚本 -->
-    <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
 </head>
 <body>
-    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
-    <button class="mobile-toggle" id="mobileToggle">☰</button>
+    <div class="wrap">
+        <header class="hero">
+            <h1>🍽️ <span>小喇叭</span>的觅食地图</h1>
+            <div class="sub" id="siteSub">美食探店 · Citywalk 漫步，一城一图</div>
+            <div class="by">由 <a href="#" id="authorLink" target="_blank" rel="noopener">小喇叭</a> 与 Deepseek 制作</div>
+        </header>
 
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <div class="logo">🍜 广州美食地图</div>
-            <div class="subtitle">
-                由<a href="https://ducklingli.github.io/about/">小喇叭</a>与Deepseek制作。<br>
-                可点击任意酒楼、景点、路线的标识，阅读详细信息。
+        <div class="toolbar">
+            <div class="search-box">
+                <span>🔍</span>
+                <input type="text" id="citySearch" placeholder="搜索城市…">
             </div>
-            <div class="stats-row">
-                <span class="stat-badge">📍 <strong id="totalCount">0</strong> 家</span>
-                <span class="stat-badge">⭐ 均分 <strong id="avgRating">-</strong></span>
-                <span class="stat-badge">📷 <strong id="spotCount">0</strong> 景点</span>
-                <span class="stat-badge">🚶 <strong id="routeCount">0</strong> 路线</span>
-            </div>
+            <span class="count-hint" id="countHint"></span>
         </div>
-        <div class="sidebar-filters">
-            <div class="layer-switch" id="layerSwitch">
-                <span class="layer-chip active" data-mode="both" onclick="window.setLayerMode('both')">🍜+🚶 全部</span>
-                <span class="layer-chip" data-mode="food" onclick="window.setLayerMode('food')">🍜 美食</span>
-                <span class="layer-chip" data-mode="citywalk" onclick="window.setLayerMode('citywalk')">🚶 Citywalk</span>
-            </div>
-            <div class="search-box"><span>🔍</span><input type="text" id="searchInput" placeholder="搜索餐厅/景点..."></div>
-            <div class="cuisine-chips" id="cuisineChips"></div>
+
+        <div class="grid" id="cityGrid">
+            <div class="loading" id="loading">正在加载城市列表…</div>
         </div>
-        <div class="sidebar-list" id="restaurantList"></div>
-        <div class="sidebar-footer">
-            <span class="hint" style="margin:auto;">👀 数据完全由小喇叭品尝得出，个人口味，仅供参考！</span>
-            <br>
-            <span id="busuanzi_container_site_pv" style="display:none;">
-                🌐 总访问 <span id="busuanzi_value_site_pv"></span>
-            </span>
+
+        <div class="howto" id="howto">
+            <h3>➕ 怎么添加一个新城市？</h3>
+            <ol>
+                <li>把新城市的数据文件传到数据仓库 <code>food-map-data</code>：美食文件（格式与 <code>data.json</code> 完全一致的数组）和 <code>xxx_citywalk.json</code>（<code>{"version":2,"spots":[],"routes":[]}</code>）。</li>
+                <li>在本仓库的 <code>cities.json</code> 的 <code>cities</code> 数组里复制一段配置，改 <code>id</code>、<code>name</code>、<code>emoji</code>、<code>tagline</code>、<code>center</code>（城市中心经纬度）、<code>zoom</code> 和两个数据文件名即可。</li>
+                <li>用本地编辑版切换到该城市录入数据，保存到 GitHub 后刷新本页就行 —— 网页代码一个字都不用改。</li>
+            </ol>
+            <pre>{
+  "id": "hangzhou",
+  "name": "杭州",
+  "emoji": "🌿",
+  "tagline": "西湖边走边吃",
+  "regions": "西湖 · 上城 · 拱墅",
+  "accent": "#16a085",
+  "center": [30.26, 120.16],
+  "zoom": 13,
+  "food": "hangzhou.json",
+  "citywalk": "hangzhou_citywalk.json",
+  "enabled": true
+}</pre>
+            <button class="btn close" id="howtoClose" style="background:#f5f0ea;border:none;border-radius:10px;padding:8px 16px;cursor:pointer;font-size:0.85em;color:#6b5e4a;">知道了</button>
         </div>
+
+        <footer class="footer">
+            <div>👀 所有数据都由小喇叭亲自品尝/走过后记录</div>
+            <div id="busuanzi_container_site_pv" style="display:none;">🌐 总访问 <span id="busuanzi_value_site_pv"></span></div>
+            <div style="margin-top:6px;"><a href="#" id="authorLink2" target="_blank" rel="noopener">ducklingli.github.io</a></div>
+        </footer>
     </div>
 
-    <div class="map-container">
-        <div id="map"></div>
-        <div class="map-legend" id="mapLegend"></div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
+    <!-- 不蒜子统计 -->
+    <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
     <script>
-    window.addEventListener('load', function() {
-        // ================= 配置 =================
-        const DATA_URL = 'https://raw.githubusercontent.com/DucklingLi/food-map-data/main/data.json';
-        const CITYWALK_URL = 'https://raw.githubusercontent.com/DucklingLi/food-map-data/main/citywalk.json';
-        // =======================================
+    // ========================================================================
+    // 兜底配置：只有当 cities.json 读取失败时（例如本地双击打开、离线）才使用。
+    // 线上以 cities.json 为准，改配置只需改 cities.json。
+    // ========================================================================
+    const FALLBACK_CONFIG = {
+        siteTitle: '小喇叭的觅食地图',
+        siteSubtitle: '美食探店 · Citywalk 漫步，一城一图',
+        author: { name: '小喇叭', url: 'https://ducklingli.github.io/' },
+        dataRepo: 'https://raw.githubusercontent.com/DucklingLi/food-map-data/main',
+        cities: [
+            { id:'guangzhou', name:'广州', emoji:'🍜', tagline:'从早茶到宵夜，一路吃到珠江边', regions:'荔湾 · 越秀 · 海珠 · 天河', accent:'#e8673a', center:[23.12,113.28], zoom:13, food:'data.json', citywalk:'citywalk.json', enabled:true },
+            { id:'nanjing', name:'南京', emoji:'🦆', tagline:'盐水鸭、鸭血粉丝与满城梧桐', regions:'玄武 · 秦淮 · 鼓楼 · 建邺', accent:'#2f6fb0', center:[32.045,118.79], zoom:13, food:'nanjing.json', citywalk:'nanjing_citywalk.json', enabled:true }
+        ]
+    };
 
-        let restaurants = [];
-        let spots = [];              // Citywalk 景点
-        let routes = [];             // Citywalk 路线
-        let layerMode = 'both';      // 'both' | 'food' | 'citywalk'
-        let highlightedSpotId = null;
-        let foodLoadError = null;    // 美食数据加载失败原因（null = 成功）
+    let config = null;
+    let statsMap = {};          // { cityId: {food, spots, routes} }
+    let filterQ = '';
+    const LAST_CITY_KEY = 'foodmap_last_city';
 
-        const cuisineColors = {
-            '粤菜':'#e67e22','川菜':'#e74c3c','中餐':'#d35400','日料':'#e91e63',
-            '西餐':'#3498db','火锅':'#c0392b','小吃':'#2ecc71','其他':'#95a5a6'
-        };
-        function getCuisineColor(c) { return cuisineColors[c] || '#95a5a6'; }
-        function getRatingColor(rating) {
-            if (rating >= 4.5) return '#e74c3c';
-            if (rating >= 4.0) return '#e67e22';
-            if (rating >= 3.5) return '#f39c12';
-            if (rating >= 3.0) return '#f1c40f';
-            return '#2ecc71';
-        }
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+    function dataUrl(city, which) {
+        const f = which === 'food' ? city.food : city.citywalk;
+        if (!f) return null;
+        if (/^https?:\/\//.test(f)) return f;
+        return (config.dataRepo || FALLBACK_CONFIG.dataRepo).replace(/\/+$/, '') + '/' + f.replace(/^\/+/, '');
+    }
 
-        // ===== Citywalk：图标与颜色 =====
-        function foodIcon(color) {
-            return L.divIcon({
-                html: `<div style="width:28px;height:28px;background:${color};border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow: 0 0 0 4px rgba(255,255,255,0.8), 0 6px 14px rgba(0,0,0,0.5);"></div>`,
-                iconSize: [28,28], iconAnchor: [14,28], popupAnchor: [0,-36]
-            });
+    async function loadConfig() {
+        try {
+            const res = await fetch('cities.json', { cache: 'no-cache' });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            if (!json || !Array.isArray(json.cities) || !json.cities.length) throw new Error('cities 配置为空');
+            return json;
+        } catch (e) {
+            console.warn('cities.json 读取失败，使用内置兜底配置：', e);
+            return FALLBACK_CONFIG;
         }
-        function spotIcon(color) {
-            return L.divIcon({
-                html: `<div style="width:26px;height:26px;background:${color};border:3px solid white;border-radius:50%;box-shadow:0 0 0 4px rgba(255,255,255,0.8), 0 6px 14px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;">📷</div>`,
-                iconSize: [26,26], iconAnchor: [13,13], popupAnchor: [0,-18]
-            });
-        }
-        function routeHasSpot(rt, spotId) {
-            return (rt.spotIds || []).includes(spotId) || (rt.points || []).some(p => String(p.spotId) === String(spotId));
-        }
-        function getSpotColor(spot) {
-            for (const rt of routes) {
-                if (routeHasSpot(rt, spot.id)) return rt.color;
+    }
+
+    // 抓取每个城市的数据量（失败不影响页面）
+    async function loadStats(cities) {
+        await Promise.all(cities.map(async (c) => {
+            const out = { food: null, spots: null, routes: null };
+            const [fr, cr] = await Promise.allSettled([fetch(dataUrl(c, 'food')), fetch(dataUrl(c, 'citywalk'))]);
+            if (fr.status === 'fulfilled' && fr.value.ok) {
+                try { const d = await fr.value.json(); out.food = Array.isArray(d) ? d.length : null; } catch (e) {}
             }
-            return '#7f8c8d'; // 不属于任何路线的景点用灰色
-        }
-
-        const map = L.map('map', { center: [23.12, 113.28], zoom: 13, zoomControl: true, attributionControl: false, fadeAnimation: false });
-        const tileSources = [
-            { name:'高德', url:'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', options:{ subdomains:'1234', maxZoom:18, opacity: 0.5 } },
-            { name:'腾讯', url:'https://rt{s}.map.gtimg.com/tile?z={z}&x={x}&y={y}&type=vector&styleid=0', options:{ subdomains:'0123', maxZoom:18, opacity: 0.5 } }
-        ];
-        let currentLayer = null;
-        function loadTile(i) {
-            if(currentLayer) map.removeLayer(currentLayer);
-            if(i>=tileSources.length){ L.rectangle([[90,-180],[-90,180]],{color:'#f0e6d8',fillColor:'#faf8f5',fillOpacity:1,interactive:false}).addTo(map); return; }
-            const layer = L.tileLayer(tileSources[i].url, tileSources[i].options);
-            layer.addTo(map); currentLayer = layer;
-            let ok=false; layer.on('tileload',()=>ok=true);
-            setTimeout(()=>{ if(!ok) loadTile(i+1); },5000);
-        }
-        loadTile(0);
-
-        let markers = [], spotMarkers = [], routeLayers = [];
-        function renderMarkers(data) {
-            markers.forEach(m => map.removeLayer(m)); markers = [];
-            spotMarkers.forEach(m => map.removeLayer(m)); spotMarkers = [];
-            routeLayers.forEach(l => map.removeLayer(l)); routeLayers = [];
-
-            // Citywalk 层：先画路线，再画景点（景点盖在线上）
-            if (layerMode !== 'food') {
-                routes.forEach(rt => drawRoute(rt));
-                getFilteredSpots().forEach(s => {
-                    const marker = L.marker([s.lat, s.lng], { icon: spotIcon(getSpotColor(s)) }).addTo(map);
-                    marker.bindPopup(spotPopupContent(s), { maxWidth:280, closeButton:true });
-                    marker.bindTooltip(s.name, { permanent: true, direction: 'bottom', offset: L.point(0, 16), className: 'restaurant-label' });
-                    marker._sid = s.id;
-                    marker.on('click', () => { highlightedSpotId = s.id; updateList(); });
-                    spotMarkers.push(marker);
-                });
+            if (cr.status === 'fulfilled' && cr.value.ok) {
+                try {
+                    const d = await cr.value.json();
+                    out.spots = Array.isArray(d.spots) ? d.spots.length : 0;
+                    out.routes = Array.isArray(d.routes) ? d.routes.length : 0;
+                } catch (e) {}
             }
+            statsMap[c.id] = out;
+        }));
+    }
 
-            // 美食层
-            if (layerMode !== 'citywalk') {
-                (data || getFiltered()).forEach(r => {
-                    const color = getRatingColor(r.rating);
-                    const marker = L.marker([r.lat, r.lng], { icon: foodIcon(color) }).addTo(map);
-                    marker.bindPopup(popupContent(r), { maxWidth:280, closeButton:true });
-                    marker.bindTooltip(r.name, { permanent: true, direction: 'bottom', offset: L.point(0, 22), className: 'restaurant-label' });
-                    marker._id = r.id;
-                    marker.on('click', () => { highlightedId = r.id; updateList(); });
-                    markers.push(marker);
-                });
-            }
+    function statPills(c) {
+        const s = statsMap[c.id];
+        const num = v => (v === null || v === undefined) ? '—' : v;
+        const loading = !s;
+        return `<span class="pill">📍 <strong>${loading ? '…' : num(s.food)}</strong> 家餐厅</span>
+                <span class="pill">📷 <strong>${loading ? '…' : num(s.spots)}</strong> 景点</span>
+                <span class="pill">🚶 <strong>${loading ? '…' : num(s.routes)}</strong> 路线</span>`;
+    }
+
+    function render() {
+        const grid = document.getElementById('cityGrid');
+        const q = filterQ.trim().toLowerCase();
+        const cities = (config.cities || []).filter(c => c.enabled !== false);
+        const shown = q
+            ? cities.filter(c => `${c.name || ''} ${c.tagline || ''} ${c.regions || ''} ${c.id || ''}`.toLowerCase().includes(q))
+            : cities;
+
+        const lastCity = localStorage.getItem(LAST_CITY_KEY);
+        let html = shown.map(c => `
+            <a class="city-card" href="city.html?city=${encodeURIComponent(c.id)}" style="--c-accent:${esc(c.accent || '#e8673a')};" onclick="window.__rememberCity('${esc(c.id)}')">
+                <span class="bar"></span>
+                ${String(c.id) === String(lastCity) ? '<span class="badge-last">上次查看</span>' : ''}
+                <div class="top">
+                    <span class="em">${esc(c.emoji || '📍')}</span>
+                    <div>
+                        <div class="nm">${esc(c.name || c.id)}</div>
+                        ${c.regions ? `<div class="rg">${esc(c.regions)}</div>` : ''}
+                    </div>
+                </div>
+                <div class="tagline">${esc(c.tagline || '')}</div>
+                <div class="stats">${statPills(c)}</div>
+                <div class="go"><span class="txt">进入地图 →</span><span>🗺️</span></div>
+            </a>`).join('');
+
+        html += `<div class="add-card" id="addCard">
+                    <div class="plus">＋</div>
+                    <div class="t">添加新城市</div>
+                    <div class="d">改一份 cities.json 配置即可<br>无需改动任何代码</div>
+                 </div>`;
+
+        if (!shown.length && q) html = `<div class="empty">没有找到匹配「${esc(filterQ)}」的城市</div>` + html;
+        grid.innerHTML = html;
+
+        document.getElementById('countHint').textContent = q ? `匹配 ${shown.length} / ${cities.length} 个城市` : `共 ${cities.length} 个城市`;
+        const addCard = document.getElementById('addCard');
+        if (addCard) addCard.addEventListener('click', () => openHowto());
+    }
+
+    function openHowto() {
+        const box = document.getElementById('howto');
+        box.classList.add('show');
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    window.__rememberCity = function (id) { try { localStorage.setItem(LAST_CITY_KEY, id); } catch (e) {} };
+
+    (async function init() {
+        config = await loadConfig();
+        document.title = '🍽️ ' + (config.siteTitle || '小喇叭的觅食地图');
+        document.getElementById('siteSub').textContent = config.siteSubtitle || '';
+        if (config.author && config.author.url) {
+            const a = document.getElementById('authorLink');
+            a.textContent = config.author.name || '小喇叭';
+            a.href = config.author.url;
+            document.getElementById('authorLink2').href = config.author.url;
+            document.getElementById('authorLink2').textContent = config.author.url.replace(/^https?:\/\//, '');
         }
+        render();
 
-        // 画一条路线：按 points 依次连成自由路径（v1 旧数据用 spotIds 兜底），较长线段加方向箭头
-        function routePointList(rt) {
-            if (Array.isArray(rt.points) && rt.points.length) return rt.points.filter(p => typeof p.lat === 'number' && typeof p.lng === 'number');
-            return (rt.spotIds || [])
-                .map(id => spots.find(s => String(s.id) === String(id)))
-                .filter(Boolean)
-                .map(s => ({ lat: s.lat, lng: s.lng, spotId: s.id }));
-        }
-        function drawRoute(rt) {
-            const pts = routePointList(rt);
-            const latlngs = pts.map(p => [p.lat, p.lng]);
-            if (latlngs.length < 2) return;
-            const line = L.polyline(latlngs, { color: rt.color, weight: 4, opacity: 0.85 }).addTo(map);
-            line.bindPopup(routePopupContent(rt), { maxWidth:280, closeButton:true });
-            line.bindTooltip(rt.name, { sticky: true, className: 'restaurant-label' });
-            routeLayers.push(line);
-            // 方向箭头：只在较长的线段上标注，密集路径点不会太杂乱
-            for (let i = 0; i < latlngs.length - 1; i++) {
-                const a = latlngs[i], b = latlngs[i+1];
-                const px = map.latLngToContainerPoint(a).distanceTo(map.latLngToContainerPoint(b));
-                if (px < 60) continue;
-                const mid = [ (a[0]+b[0])/2, (a[1]+b[1])/2 ];
-                const angle = Math.atan2(-(b[0]-a[0]), b[1]-a[1]) * 180 / Math.PI;
-                const arrow = L.marker(mid, {
-                    interactive: false,
-                    icon: L.divIcon({
-                        html: `<div style="transform:rotate(${angle}deg);color:${rt.color};font-size:15px;font-weight:900;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;">➤</div>`,
-                        className: '', iconSize: [16,16], iconAnchor: [8,8]
-                    })
-                }).addTo(map);
-                routeLayers.push(arrow);
-            }
-        }
+        // 先让卡片出现，再异步补数据量
+        const cities = (config.cities || []).filter(c => c.enabled !== false);
+        await loadStats(cities);
+        render();
+    })();
 
-        function popupContent(r) {
-            const stars = '★'.repeat(Math.floor(r.rating)) + (r.rating%1>=0.5?'⯪':'') + '☆'.repeat(5-Math.ceil(r.rating));
-            const imgs = r.images?.length ? r.images.map(u => `<img src="${u}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;margin:2px;" onclick="event.stopPropagation();window.openLightbox('${u}')">`).join('') : '';
-            return `<div><div>${imgs}</div><b>${r.name}</b> <span style="background:${getCuisineColor(r.cuisine)};color:#fff;padding:2px 6px;border-radius:8px;">${r.cuisine}</span><br>⭐ ${stars} ${r.rating} · ${r.date||''}<br>${r.price ? '人均价格（元）：' + r.price : ''}<br>${r.review||''}</div>`;
-        }
-        function spotPopupContent(s) {
-            const stars = '★'.repeat(Math.floor(s.rating)) + (s.rating%1>=0.5?'⯪':'') + '☆'.repeat(5-Math.ceil(s.rating));
-            const imgs = s.images?.length ? s.images.map(u => `<img src="${u}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;margin:2px;" onclick="event.stopPropagation();window.openLightbox('${u}')">`).join('') : '';
-            const routeTags = routes.filter(rt => routeHasSpot(rt, s.id))
-                .map(rt => `<span style="background:${rt.color};color:#fff;padding:2px 6px;border-radius:8px;margin-right:4px;">🚶 ${rt.name}</span>`).join('');
-            return `<div><div>${imgs}</div><b>${s.name}</b> 📷<br>${routeTags}<br>⭐ ${stars} ${s.rating} · ${s.date||''}<br>${s.review||''}</div>`;
-        }
-        function routePopupContent(rt) {
-            const stars = '★'.repeat(Math.floor(rt.rating||0)) + ((rt.rating||0)%1>=0.5?'⯪':'') + '☆'.repeat(5-Math.ceil(rt.rating||0));
-            const pts = routePointList(rt);
-            const names = pts.map(p => {
-                if (p.spotId) { const s = spots.find(x => String(x.id) === String(p.spotId)); return s ? '📷 ' + s.name : null; }
-                if (p.restaurantId) { const r = restaurants.find(x => String(x.id) === String(p.restaurantId)); return r ? '🍜 ' + r.name : null; }
-                return null;
-            }).filter(Boolean).join(' → ');
-            return `<div><b>${rt.name}</b> <span style="background:${rt.color};color:#fff;padding:2px 6px;border-radius:8px;">路线</span><br>🚶 ${names || '（自由路线）'}（${pts.length} 个路径点）<br>⭐ ${stars} ${rt.rating||'-'} · ${rt.date||''}<br>${rt.review||''}</div>`;
-        }
-        window.openLightbox = function(url) {
-            const ov = document.createElement('div');
-            ov.style = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center;';
-            ov.innerHTML = `<img src="${url}" style="max-width:90vw;max-height:90vh;border-radius:8px;">`;
-            ov.onclick = ()=>ov.remove();
-            document.body.appendChild(ov);
-        };
-
-        let activeCuisine = 'all', searchQ = '', highlightedId = null;
-        function getFiltered() {
-            let data = [...restaurants];
-            if(activeCuisine !== 'all') data = data.filter(r=>r.cuisine===activeCuisine);
-            if(searchQ.trim()){ const q = searchQ.trim().toLowerCase(); data = data.filter(r=> `${r.name} ${r.cuisine} ${(r.tags||[]).join(' ')} ${r.review}`.toLowerCase().includes(q)); }
-            return data.sort((a,b)=> (b.date||'').localeCompare(a.date||''));
-        }
-        function getFilteredSpots() {
-            let data = [...spots];
-            if(searchQ.trim()){
-                const q = searchQ.trim().toLowerCase();
-                data = data.filter(s => `${s.name} ${s.review} ${(s.tags||[]).join(' ')}`.toLowerCase().includes(q));
-            }
-            return data.sort((a,b)=> (b.date||'').localeCompare(a.date||''));
-        }
-
-        function updateList() {
-            const filtered = getFiltered();
-            const filteredSpots = (layerMode !== 'food') ? getFilteredSpots() : [];
-            const container = document.getElementById('restaurantList');
-            let html = '';
-
-            if (layerMode !== 'citywalk') {
-                if (foodLoadError) {
-                    html += `<div style="text-align:center;padding:40px;color:#c0392b;">⚠️ 美食数据加载失败<br><span style="font-size:0.85em;color:#999;">${foodLoadError}</span><br><span style="font-size:0.85em;color:#999;">请刷新重试，或按 F12 查看控制台</span></div>`;
-                }
-                else if(!filtered.length){ html += '<div style="text-align:center;padding:40px;color:#999;">🍽️ 暂无餐厅</div>'; }
-                else {
-                    html += filtered.map(r=>{
-                        const thumb = r.images?.length ? `<img src="${r.images[0]}" onerror="this.style.display='none';this.parentElement.textContent='🍽️';">` : '🍽️';
-                        const stars = '★'.repeat(Math.floor(r.rating)) + '☆'.repeat(5-Math.ceil(r.rating));
-                        return `<div class="restaurant-card${r.id===highlightedId?' highlighted':''}" onclick="window.flyTo('${r.id}')"><div class="card-thumb">${thumb}</div><div class="card-info"><div class="name"><span style="background:${getCuisineColor(r.cuisine)};width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;"></span>${r.name}</div><div class="meta"><span class="stars">${stars}</span> ${r.rating} · ${r.date||''}</div></div></div>`;
-                    }).join('');
-                }
-            }
-
-            if (layerMode !== 'food') {
-                html += '<div class="list-section-title">🚶 Citywalk 景点</div>';
-                if(!filteredSpots.length){ html += '<div style="text-align:center;padding:20px;color:#999;">📷 暂无景点</div>'; }
-                else {
-                    html += filteredSpots.map(s=>{
-                        const stars = '★'.repeat(Math.floor(s.rating)) + '☆'.repeat(5-Math.ceil(s.rating));
-                        return `<div class="restaurant-card${s.id===highlightedSpotId?' highlighted':''}" onclick="window.flyToSpot('${s.id}')"><div class="card-thumb" style="background:#e8eef4;">📷</div><div class="card-info"><div class="name"><span style="background:${getSpotColor(s)};width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;"></span>${s.name}</div><div class="meta"><span class="stars">${stars}</span> ${s.rating} · ${s.date||''}</div></div></div>`;
-                    }).join('');
-                }
-            }
-
-            container.innerHTML = html;
-            document.getElementById('totalCount').textContent = filtered.length;
-            if(filtered.length){ document.getElementById('avgRating').textContent = (filtered.reduce((s,r)=>s+(r.rating||0),0)/filtered.length).toFixed(1); }
-            else document.getElementById('avgRating').textContent = '-';
-            const spotCountEl = document.getElementById('spotCount'); if (spotCountEl) spotCountEl.textContent = spots.length;
-            const routeCountEl = document.getElementById('routeCount'); if (routeCountEl) routeCountEl.textContent = routes.length;
-
-            const counts = {};
-            restaurants.forEach(r=> counts[r.cuisine] = (counts[r.cuisine]||0)+1);
-            let chips = `<span class="chip${activeCuisine==='all'?' active':''}" onclick="window.filterCuisine('all')">全部 (${restaurants.length})</span>`;
-            Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([c,n])=>{ chips += `<span class="chip${activeCuisine===c?' active':''}" onclick="window.filterCuisine('${c}')">${c} (${n})</span>`; });
-            document.getElementById('cuisineChips').innerHTML = (layerMode === 'citywalk') ? '' : chips;
-
-            // 图例：美食按评分，Citywalk 按路线颜色
-            let legend = '';
-            if (layerMode !== 'citywalk') {
-                legend = `<span><span class="legend-dot" style="background:#e74c3c;"></span> 4.5+</span><span><span class="legend-dot" style="background:#e67e22;"></span> 4.0-4.5</span><span><span class="legend-dot" style="background:#f39c12;"></span> 3.5-4.0</span><span><span class="legend-dot" style="background:#f1c40f;"></span> 3.0-3.5</span><span><span class="legend-dot" style="background:#2ecc71;"></span> &lt;3.0</span>`;
-            }
-            if (layerMode !== 'food') {
-                routes.forEach(rt => { legend += `<span><span class="legend-dot" style="background:${rt.color};"></span> ${rt.name}</span>`; });
-            }
-            document.getElementById('mapLegend').innerHTML = legend;
-        }
-
-        window.filterCuisine = function(c) { activeCuisine = c; highlightedId = null; updateList(); renderMarkers(); };
-        window.flyTo = function(id) {
-            const r = restaurants.find(r=>String(r.id)===String(id)); if(!r) return;
-            highlightedId = r.id; updateList();
-            map.flyTo([r.lat, r.lng], 16);
-            const marker = markers.find(m=>String(m._id)===String(id));
-            if(marker) setTimeout(()=>marker.openPopup(), 800);
-            if(window.innerWidth<=768) closeSidebar();
-        };
-        window.flyToSpot = function(id) {
-            const s = spots.find(x => String(x.id) === String(id)); if(!s) return;
-            highlightedSpotId = s.id; updateList();
-            map.flyTo([s.lat, s.lng], 16);
-            const marker = spotMarkers.find(m => String(m._sid) === String(id));
-            if(marker) setTimeout(()=>marker.openPopup(), 800);
-            if(window.innerWidth<=768) closeSidebar();
-        };
-        window.setLayerMode = function(m) {
-            layerMode = m;
-            document.querySelectorAll('.layer-chip').forEach(c => c.classList.toggle('active', c.dataset.mode === m));
-            updateList();
-            renderMarkers();
-        };
-
-        document.getElementById('searchInput').addEventListener('input', function() { searchQ = this.value; highlightedId = null; updateList(); renderMarkers(); });
-
-        // 从 GitHub 加载数据（美食 + Citywalk 双文件，Citywalk 缺失时自动降级）
-        async function loadFromGitHub() {
-            try {
-                const [foodRes, cwRes] = await Promise.allSettled([ fetch(DATA_URL), fetch(CITYWALK_URL) ]);
-
-                if (foodRes.status === 'fulfilled' && foodRes.value.ok) {
-                    const data = await foodRes.value.json();
-                    if (Array.isArray(data)) {
-                        restaurants = data;
-                        foodLoadError = null;
-                        console.log('✅ 美食数据加载成功：' + restaurants.length + ' 家餐厅');
-                    } else {
-                        foodLoadError = 'data.json 内容不是数组（格式被改动过？）';
-                        console.error(foodLoadError, data);
-                    }
-                } else if (foodRes.status === 'rejected') {
-                    foodLoadError = '网络请求失败：' + (foodRes.reason && foodRes.reason.message ? foodRes.reason.message : foodRes.reason);
-                    console.error('data.json 请求失败：', foodRes.reason);
-                } else {
-                    foodLoadError = 'data.json 请求返回 HTTP ' + foodRes.value.status;
-                    console.error(foodLoadError);
-                }
-
-                if (cwRes.status === 'fulfilled' && cwRes.value.ok) {
-                    const cw = await cwRes.value.json();
-                    spots = Array.isArray(cw.spots) ? cw.spots : [];
-                    routes = Array.isArray(cw.routes) ? cw.routes : [];
-                    console.log('✅ Citywalk 数据加载成功：' + spots.length + ' 个景点，' + routes.length + ' 条路线');
-                } else {
-                    // citywalk.json 不存在或加载失败：自动降级为纯美食模式，不算错误
-                    console.log('ℹ️ citywalk.json 未加载（可能不存在），保持纯美食模式');
-                }
-
-                updateList();
-                renderMarkers();
-
-                const pts = [];
-                if (layerMode !== 'citywalk') restaurants.forEach(r => pts.push([r.lat, r.lng]));
-                if (layerMode !== 'food') spots.forEach(s => pts.push([s.lat, s.lng]));
-                if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [30,30], maxZoom: 15 });
-            } catch (e) {
-                console.error('加载数据失败', e);
-                foodLoadError = '解析失败：' + e.message;
-                updateList();
-            }
-        }
-
-        const sidebar = document.getElementById('sidebar');
-        const backdrop = document.getElementById('sidebarBackdrop');
-        function openSidebar(){ sidebar.classList.add('open'); backdrop.classList.add('show'); }
-        function closeSidebar(){ sidebar.classList.remove('open'); backdrop.classList.remove('show'); }
-        document.getElementById('mobileToggle').addEventListener('click', ()=> sidebar.classList.contains('open')? closeSidebar() : openSidebar());
-        backdrop.addEventListener('click', closeSidebar);
-        window.addEventListener('resize', ()=>{ map.invalidateSize(); if(window.innerWidth>768) closeSidebar(); });
-
-        // 启动
-        loadFromGitHub();
-    });
+    document.getElementById('citySearch').addEventListener('input', function () { filterQ = this.value; render(); });
+    document.getElementById('howtoClose').addEventListener('click', () => document.getElementById('howto').classList.remove('show'));
     </script>
 </body>
 </html>
