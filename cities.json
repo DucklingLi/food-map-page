@@ -1,7 +1,7 @@
 {
   "version": 1,
   "siteTitle": "小喇叭的觅食地图",
-  "siteSubtitle": "美食探店 · Citywalk 漫步，一城一图",
+  "siteSubtitle": "美食探店 · Citywalk 漫步，一城一图（这句话是AI生成的）",
   "author": {
     "name": "小喇叭",
     "url": "https://ducklingli.github.io/"
@@ -12,7 +12,7 @@
       "id": "guangzhou",
       "name": "广州",
       "emoji": "🍜",
-      "tagline": "从早茶到宵夜，一路吃到珠江边",
+      "tagline": "食在广州一百家……（x）",
       "regions": "荔湾 · 越秀 · 海珠 · 天河",
       "accent": "#e8673a",
       "center": [23.12, 113.28],
@@ -25,8 +25,8 @@
       "id": "nanjing",
       "name": "南京",
       "emoji": "🦆",
-      "tagline": "盐水鸭、鸭血粉丝与满城梧桐",
-      "regions": "玄武 · 秦淮 · 鼓楼 · 建邺",
+      "tagline": "致力于发掘南京到底有没有美食。",
+      "regions": "玄武 · 秦淮 · 鼓楼 · 栖霞",
       "accent": "#2f6fb0",
       "center": [32.045, 118.79],
       "zoom": 13,
